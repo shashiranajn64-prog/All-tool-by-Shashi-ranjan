@@ -9,6 +9,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsConditions } from './pages/TermsConditions';
 import { ToolPage } from './pages/ToolPage';
 import { ResumeBuilder } from './pages/ResumeBuilder';
+import { IdCardCropTool } from './pages/IdCardCropTool';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 
@@ -98,6 +99,8 @@ export default function App() {
     }
   } else if (currentPath === '/tools/resume-builder') {
     content = <ResumeBuilder onNavigate={handleNavigate} />;
+  } else if (currentPath === '/tools/id-card-crop-pdf') {
+    content = <IdCardCropTool />;
   } else if (currentPath.startsWith('/tools/')) {
     const toolId = currentPath.replace('/tools/', '');
     content = <ToolPage toolId={toolId} onNavigate={handleNavigate} />;

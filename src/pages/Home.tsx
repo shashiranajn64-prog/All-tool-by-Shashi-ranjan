@@ -213,8 +213,7 @@ export function Home({ onNavigate, onSelectTool }: HomeProps) {
             <div
               key={tool.id}
               onClick={() => {
-                onSelectTool(tool.id);
-                onNavigate(tool.path);
+                window.open(tool.path, '_blank');
               }}
               className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-xl transition-all cursor-pointer group flex flex-col justify-between"
             >

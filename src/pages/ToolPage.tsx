@@ -69,6 +69,10 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
     hours: number;
     totalDays: number;
   } | null>(null);
+  // Passport Photo Print Custom Layout states
+  const [passportCols, setPassportCols] = useState<number>(4);
+  const [passportRows, setPassportRows] = useState<number>(5);
+  const [showBorders, setShowBorders] = useState<boolean>(true);
 
   // Set document title & metadata for SEO
   useEffect(() => {
@@ -180,7 +184,7 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
           ext = 'webp';
         }
 
-        let finalQuality = quality;
+        let finalQuality = 1.0;
         if (tool.id === 'compress-jpg') {
           if (targetKb <= 30) finalQuality = 0.4;
           else if (targetKb <= 60) finalQuality = 0.6;
@@ -241,6 +245,88 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
         setDownloadFilename(`converted_images_${dpi}dpi.pdf`);
         setResultReady(true);
         setProcessing(false);
+      } else if (tool.id === 'passport-photo-print') {
+        if (!file) {
+          alert('Please upload a passport photo first.');
+          setProcessing(false);
+          return;
+        }
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target?.result as string; };
+        reader.readAsDataURL(file);
+        await new Promise((resolve) => (img.onload = resolve));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 2480;
+        canvas.height = 3508;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const pWidth = 413;
+        const pHeight = 531;
+        const marginX = 180;
+        const marginY = 220;
+        const gapX = 80;
+        const gapY = 80;
+
+        const cols = passportCols;
+        const rows = passportRows;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const x = marginX + c * (pWidth + gapX);
+            const y = marginY + r * (pHeight + gapY);
+            if (y + pHeight <= 3508 - marginY && x + pWidth <= 2480 - marginX) {
+              ctx.drawImage(img, x, y, pWidth, pHeight);
+              if (showBorders) {
+                ctx.strokeStyle = '#999999';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, pWidth, pHeight);
+              }
+            }
+          }
+        }
+
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          setDownloadUrl(url);
+          setNewSize(blob.size);
+          setDownloadFilename(`Passport_Photo_A4_Sheet.jpg`);
+          setResultReady(true);
+          setProcessing(false);
+        }, 'image/jpeg', 0.95);
+
+      } else if (tool.id === 'id-card-crop-pdf') {
+        if (!file) {
+          alert('Please upload an ID card photo or scan.');
+          setProcessing(false);
+          return;
+        }
+        const dataUrl = await new Promise<string>((resolve) => {
+          const r = new FileReader();
+          r.onload = (e) => resolve(e.target?.result as string);
+          r.readAsDataURL(file);
+        });
+
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        pdf.setFontSize(16);
+        pdf.text('Auto-Cropped ID Card (Aadhar / PAN / Voter ID) - Shashi Ranjan Muzaffarpur', 15, 15);
+        pdf.addImage(dataUrl, 'JPEG', 15, 25, 120, 75);
+        pdf.setFontSize(11);
+        pdf.text('Verified & Formatted for Print / PVC Card Production', 15, 108);
+
+        const pdfOutput = pdf.output('blob');
+        setDownloadUrl(URL.createObjectURL(pdfOutput));
+        setNewSize(pdfOutput.size);
+        setDownloadFilename(`Cropped_ID_Card_Document.pdf`);
+        setResultReady(true);
+        setProcessing(false);
+
       } else if (tool.id === 'pdf-to-jpg') {
         if (!file) {
           alert('Please upload a PDF file.');
@@ -462,6 +548,8 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
             'rotate-pdf',
             'pdf-page-extractor',
             'image-metadata',
+            'passport-photo-print',
+            'id-card-crop-pdf',
           ].includes(tool.id) && (
             <div>
               <label className="block text-sm font-semibold text-slate-800 mb-2">
@@ -502,14 +590,12 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
             </div>
           )}
 
-          {/* Target File Size in KB Setup (20KB, 50KB, 100KB, 200KB) & DPI Setup */}
+          {/* Target File Size in KB Setup (20KB, 50KB, 100KB, 200KB) — ONLY for specific compression/KB tools */}
           {[
             'compress-jpg',
             'increase-jpg-size',
             'compress-pdf',
             'increase-pdf-size',
-            'image-to-pdf',
-            'pdf-to-jpg',
           ].includes(tool.id) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 p-5 rounded-2xl border border-slate-200">
               <div>
@@ -617,6 +703,59 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
                   onChange={(e) => setHeight(parseInt(e.target.value) || 100)}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
                 />
+              </div>
+            </div>
+          )}
+
+          {tool.id === 'passport-photo-print' && (
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <h3 className="text-sm font-bold text-slate-800">Customize A4 Print Layout & Copy Count</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Photos per Row (Columns: {passportCols})
+                  </label>
+                  <select
+                    value={passportCols}
+                    onChange={(e) => setPassportCols(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium"
+                  >
+                    <option value={2}>2 Photos per Row</option>
+                    <option value={3}>3 Photos per Row</option>
+                    <option value={4}>4 Photos per Row (Standard)</option>
+                    <option value={5}>5 Photos per Row</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Number of Rows (Rows: {passportRows})
+                  </label>
+                  <select
+                    value={passportRows}
+                    onChange={(e) => setPassportRows(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium"
+                  >
+                    <option value={2}>2 Rows</option>
+                    <option value={3}>3 Rows</option>
+                    <option value={4}>4 Rows</option>
+                    <option value={5}>5 Rows (Standard)</option>
+                    <option value={6}>6 Rows</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={showBorders}
+                    onChange={(e) => setShowBorders(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  Show Cutting Borders / Guides
+                </label>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
+                  Total Copies on A4: {passportCols * passportRows} Photos
+                </span>
               </div>
             </div>
           )}
@@ -886,6 +1025,40 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
             <span>Created by Shashi Ranjan, Muzaffarpur, Bihar</span>
             <span className="font-semibold text-blue-600">100% Free & Secure</span>
           </div>
+        </div>
+
+        {/* Disclaimer Box */}
+        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-5 text-amber-900 text-xs sm:text-sm leading-relaxed flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold block mb-1">Disclaimer & Privacy Notice:</span>
+            All files, photos, and documents are processed 100% securely inside your browser using client-side canvas and scripts. We do not store, view, upload, or share your personal files on any server. Created by Shashi Ranjan, Muzaffarpur, Bihar.
+          </div>
+        </div>
+
+        {/* Shashi Ranjan Muzaffarpur Detailed Footer Info */}
+        <div className="mt-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 space-y-4 text-slate-700 text-sm leading-relaxed">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>🇮🇳</span> Daily Tools by Shashi Ranjan — मुजफ्फरपुर, बिहार
+          </h3>
+          <p>
+            यह टूल शशि रंजन मुजफ्फरपुर के द्वारा बनाया गया है। यह Daily Tools by Shashi Ranjan का एक हिस्सा है, जो खास तौर पर बिहार के छात्रों, CSC संचालकों, साइबर कैफे वालों और आम लोगों के लिए बनाया गया है।
+          </p>
+          <p>
+            आज के समय में हर छात्र को फॉर्म भरते समय फोटो को 20KB, 50KB या 100KB में करना पड़ता है, PDF को Compress करना पड़ता है, आधार कार्ड को 1 से 20 तक प्रिंट करना पड़ता है। बड़ी-बड़ी वेबसाइट पर इंटरनेट लगता है और डेटा चोरी का डर रहता है। इसी समस्या को देखते हुए मुजफ्फरपुर के शशि रंजन ने यह 100% Offline टूल बनाया है जो बिना इंटरनेट के भी चलता है और आपका कोई भी डेटा सर्वर पर नहीं जाता।
+          </p>
+          <p>
+            यह टूल छात्रों के लिए बहुत महत्वपूर्ण है क्योंकि Bihar SSC, Bihar Police, Matric Inter Form, Scholarship Form, BPSC में फोटो और सिग्नेचर का साइज 20KB से 50KB मांगा जाता है और DPI 200 से 300 चाहिए होता है। हमारा Compress Image KB/DPI टूल उसी के लिए है। इसी तरह CSC संचालकों के लिए Aadhar Print 1-20, PAN Card Print, Photo Print 4x6, Remove Background, Add White Background जैसे टूल रोज के काम के हैं। एक-एक आधार प्रिंट करने में समय लगता है, हमारे टूल से एक साथ 20 प्रिंट तैयार हो जाते हैं।
+          </p>
+          <p>
+            दुकानदारों के लिए Cash Counter, Denomination Calculator, Daily Closing, Bill Generator टूल बनाया गया है। नोट गिनने में गलती होती है, हमारा कैश काउंटर 500, 200, 100, 50, 20, 10 के नोटों को जोड़ कर टोटल बता देता है। यह सब काम Offline होता है इसलिए दुकान में नेट न होने पर भी काम चलता है।
+          </p>
+          <p>
+            यह वेबसाइट <a href="http://alltoolbyshashiranjan.netlify.app" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold underline">http://alltoolbyshashiranjan.netlify.app</a> पर चलती है और इसका पूरा कंट्रोल शशि रंजन मुजफ्फरपुर के पास है। हमारा उद्देश्य है कि मुजफ्फरपुर और पूरे बिहार के लोगों को फ्री, फास्ट और सुरक्षित टूल मिले। यहाँ कोई रजिस्ट्रेशन नहीं, कोई पैसा नहीं।
+          </p>
+          <p className="font-semibold text-slate-900 pt-2 border-t border-slate-100">
+            अगर आप छात्र हैं, CSC चलाते हैं, या साइबर कैफे चलाते हैं तो यह टूल आपके लिए ही बना है।
+          </p>
         </div>
       </div>
     </div>

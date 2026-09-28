@@ -141,6 +141,22 @@ export function Header({ currentPath, onNavigate, onSelectTool }: HeaderProps) {
             </button>
           </nav>
 
+          {/* Special Header Buttons for New Tools */}
+          <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-slate-200">
+            <button
+              onClick={() => window.open('/tools/passport-photo-print', '_blank')}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <span>📷 Passport Photo</span>
+            </button>
+            <button
+              onClick={() => window.open('/tools/id-card-crop-pdf', '_blank')}
+              className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <span>🪪 ID Card Crop PDF</span>
+            </button>
+          </div>
+
           {/* Mobile menu button */}
           <div className="flex lg:hidden items-center gap-2">
             <button

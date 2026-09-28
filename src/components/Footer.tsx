@@ -173,6 +173,31 @@ export function Footer({ onNavigate }: FooterProps) {
           </div>
         </div>
 
+        {/* Shashi Ranjan Muzaffarpur Detailed Footer Info */}
+        <div className="mb-10 bg-slate-800/90 rounded-2xl p-6 sm:p-8 border border-slate-700/80 text-slate-300 text-sm leading-relaxed space-y-4">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <span>🇮🇳</span> Daily Tools by Shashi Ranjan — मुजफ्फरपुर, बिहार
+          </h3>
+          <p>
+            यह टूल शशि रंजन मुजफ्फरपुर के द्वारा बनाया गया है। यह Daily Tools by Shashi Ranjan का एक हिस्सा है, जो खास तौर पर बिहार के छात्रों, CSC संचालकों, साइबर कैफे वालों और आम लोगों के लिए बनाया गया है।
+          </p>
+          <p>
+            आज के समय में हर छात्र को फॉर्म भरते समय फोटो को 20KB, 50KB या 100KB में करना पड़ता है, PDF को Compress करना पड़ता है, आधार कार्ड को 1 से 20 तक प्रिंट करना पड़ता है। बड़ी-बड़ी वेबसाइट पर इंटरनेट लगता है और डेटा चोरी का डर रहता है। इसी समस्या को देखते हुए मुजफ्फरपुर के शशि रंजन ने यह 100% Offline टूल बनाया है जो बिना इंटरनेट के भी चलता है और आपका कोई भी डेटा सर्वर पर नहीं जाता।
+          </p>
+          <p>
+            यह टूल छात्रों के लिए बहुत महत्वपूर्ण है क्योंकि Bihar SSC, Bihar Police, Matric Inter Form, Scholarship Form, BPSC में फोटो और सिग्नेचर का साइज 20KB से 50KB मांगा जाता है और DPI 200 से 300 चाहिए होता है। हमारा Compress Image KB/DPI टूल उसी के लिए है। इसी तरह CSC संचालकों के लिए Aadhar Print 1-20, PAN Card Print, Photo Print 4x6, Remove Background, Add White Background जैसे टूल रोज के काम के हैं। एक-एक आधार प्रिंट करने में समय लगता है, हमारे टूल से एक साथ 20 प्रिंट तैयार हो जाते हैं।
+          </p>
+          <p>
+            दुकानदारों के लिए Cash Counter, Denomination Calculator, Daily Closing, Bill Generator टूल बनाया गया है। नोट गिनने में गलती होती है, हमारा कैश काउंटर 500, 200, 100, 50, 20, 10 के नोटों को जोड़ कर टोटल बता देता है। यह सब काम Offline होता है इसलिए दुकान में नेट न होने पर भी काम चलता है।
+          </p>
+          <p>
+            यह वेबसाइट <a href="http://alltoolbyshashiranjan.netlify.app" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold underline">http://alltoolbyshashiranjan.netlify.app</a> पर चलती है और इसका पूरा कंट्रोल शशि रंजन मुजफ्फरपुर के पास है। हमारा उद्देश्य है कि मुजफ्फरपुर और पूरे बिहार के लोगों को फ्री, फास्ट और सुरक्षित टूल मिले। यहाँ कोई रजिस्ट्रेशन नहीं, कोई पैसा नहीं।
+          </p>
+          <p className="font-semibold text-white pt-2 border-t border-slate-700">
+            अगर आप छात्र हैं, CSC चलाते हैं, या साइबर कैफे चलाते हैं तो यह टूल आपके लिए ही बना है।
+          </p>
+        </div>
+
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
