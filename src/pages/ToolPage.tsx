@@ -19,6 +19,8 @@ import { TOOLS_DATA } from '../data/toolsData';
 import jsPDF from 'jspdf';
 import JSZip from 'jszip';
 import QRCode from 'qrcode';
+import { compressImageToTargetKb } from '../utils/imageCompressor';
+import { compressPdfToTargetKb } from '../utils/pdfCompressor';
 
 interface ToolPageProps {
   toolId: string;
@@ -40,6 +42,13 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
   const [originalSize, setOriginalSize] = useState<number>(0);
   const [newSize, setNewSize] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
+  const [compressionStatus, setCompressionStatus] = useState<string>('');
+  const [compressionDetails, setCompressionDetails] = useState<{
+    targetKb: number;
+    finalKb: number;
+    diffKb: number;
+  } | null>(null);
+  const [compressionError, setCompressionError] = useState<string | null>(null);
 
   // Tool specific states
   // Compress/Increase JPG & PDF settings
@@ -92,6 +101,9 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
       }
       setFiles(selectedFiles);
       setResultReady(false);
+      setCompressionDetails(null);
+      setCompressionError(null);
+      setCompressionStatus('');
     }
   };
 
@@ -105,6 +117,9 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
       }
       setFiles(droppedFiles);
       setResultReady(false);
+      setCompressionDetails(null);
+      setCompressionError(null);
+      setCompressionStatus('');
     }
   };
 
@@ -120,9 +135,112 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
   // --- TOOL PROCESSOR ---
   const processTool = async () => {
     setProcessing(true);
+    setCompressionError(null);
     try {
-      if (
-        tool.id === 'compress-jpg' ||
+      if (tool.id === 'compress-jpg') {
+        if (!file) {
+          alert('Please upload an image file first.');
+          setProcessing(false);
+          return;
+        }
+        setCompressionStatus('Analyzing image for target size optimization...');
+
+        try {
+          const result = await compressImageToTargetKb(file, targetKb, {
+            dpi,
+            onProgress: (p) => {
+              setCompressionStatus(p.message);
+            },
+          });
+
+          const url = URL.createObjectURL(result.blob);
+          setDownloadUrl(url);
+          setNewSize(result.finalBytes);
+          setCompressionDetails({
+            targetKb: result.targetKb,
+            finalKb: result.finalKb,
+            diffKb: result.differenceKb,
+          });
+          const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || 'image';
+          setDownloadFilename(`${baseName}_compressed_${result.finalKb}kb.jpg`);
+          setResultReady(true);
+          setProcessing(false);
+          return;
+        } catch (err: any) {
+          console.error('Image compression failed:', err);
+          setCompressionError(err.message || 'Image compression failed.');
+          setProcessing(false);
+          return;
+        }
+      } else if (tool.id === 'compress-pdf') {
+        if (!file) {
+          alert('Please upload a PDF file first.');
+          setProcessing(false);
+          return;
+        }
+        setCompressionStatus('Reading PDF document for target compression...');
+
+        try {
+          const result = await compressPdfToTargetKb(file, targetKb, {
+            onProgress: (p) => {
+              setCompressionStatus(p.message);
+            },
+          });
+
+          const url = URL.createObjectURL(result.blob);
+          setDownloadUrl(url);
+          setNewSize(result.finalBytes);
+          setCompressionDetails({
+            targetKb: result.targetKb,
+            finalKb: result.finalKb,
+            diffKb: result.differenceKb,
+          });
+          const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || 'document';
+          setDownloadFilename(`${baseName}_compressed_${result.finalKb}kb.pdf`);
+          setResultReady(true);
+          setProcessing(false);
+          return;
+        } catch (err: any) {
+          console.error('PDF compression failed:', err);
+          setCompressionError(err.message || 'PDF compression failed. Please verify that the PDF is valid.');
+          setProcessing(false);
+          return;
+        }
+      } else if (tool.id === 'increase-pdf-size') {
+        if (!file) {
+          alert('Please upload a PDF file first.');
+          setProcessing(false);
+          return;
+        }
+        const arrayBuf = await file.arrayBuffer();
+        const targetBytes = targetKb * 1024;
+        let finalBytes = new Uint8Array(arrayBuf);
+        if (finalBytes.length < targetBytes) {
+          const paddingNeeded = targetBytes - finalBytes.length;
+          const pad = new Uint8Array(paddingNeeded);
+          pad[0] = 0x25; // %
+          pad[1] = 0x20; // space
+          pad.fill(0x30, 2, paddingNeeded - 1);
+          pad[paddingNeeded - 1] = 0x0A;
+          const merged = new Uint8Array(finalBytes.length + paddingNeeded);
+          merged.set(finalBytes, 0);
+          merged.set(pad, finalBytes.length);
+          finalBytes = merged;
+        }
+        const finalBlob = new Blob([finalBytes], { type: 'application/pdf' });
+        setDownloadUrl(URL.createObjectURL(finalBlob));
+        setNewSize(finalBlob.size);
+        setCompressionDetails({
+          targetKb,
+          finalKb: parseFloat((finalBlob.size / 1024).toFixed(1)),
+          diffKb: parseFloat(Math.abs((finalBlob.size / 1024) - targetKb).toFixed(1)),
+        });
+        const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || 'document';
+        setDownloadFilename(`${baseName}_increased_${targetKb}kb.pdf`);
+        setResultReady(true);
+        setProcessing(false);
+        return;
+      } else if (
         tool.id === 'resize-image' ||
         tool.id === 'rotate-image' ||
         tool.id === 'jpg-to-png' ||
@@ -185,12 +303,6 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
         }
 
         let finalQuality = 1.0;
-        if (tool.id === 'compress-jpg') {
-          if (targetKb <= 30) finalQuality = 0.4;
-          else if (targetKb <= 60) finalQuality = 0.6;
-          else if (targetKb <= 120) finalQuality = 0.75;
-          else finalQuality = 0.9;
-        }
 
         canvas.toBlob(
           (blob) => {
@@ -204,9 +316,6 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
                 const padding = new Uint8Array(paddingSize);
                 finalBlob = new Blob([blob, padding], { type: mimeType });
               }
-            } else if (tool.id === 'compress-jpg' && blob.size > targetBytes) {
-              // Simulated compressed blob sizing
-              finalBlob = blob;
             }
 
             const url = URL.createObjectURL(finalBlob);
@@ -343,8 +452,6 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
         setResultReady(true);
         setProcessing(false);
       } else if (
-        tool.id === 'compress-pdf' ||
-        tool.id === 'increase-pdf-size' ||
         tool.id === 'merge-pdf' ||
         tool.id === 'split-pdf' ||
         tool.id === 'rotate-pdf' ||
@@ -356,16 +463,8 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
           return;
         }
         const pdf = new jsPDF();
-        pdf.text(`Processed PDF Document (${dpi} DPI, Target: ${targetKb} KB)`, 20, 20);
-        const blob = pdf.output('blob');
-
-        let finalBlob = blob;
-        const targetBytes = targetKb * 1024;
-        if (tool.id === 'increase-pdf-size' && blob.size < targetBytes) {
-          const paddingSize = targetBytes - blob.size;
-          const padding = new Uint8Array(paddingSize);
-          finalBlob = new Blob([blob, padding], { type: 'application/pdf' });
-        }
+        pdf.text(`Processed PDF Document (${dpi} DPI)`, 20, 20);
+        const finalBlob = pdf.output('blob');
 
         setDownloadUrl(URL.createObjectURL(finalBlob));
         setNewSize(finalBlob.size);
@@ -663,20 +762,26 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
           )}
 
           {tool.id === 'compress-jpg' && (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-              <div className="flex justify-between text-sm font-semibold text-slate-800">
-                <span>Compression Quality Slider</span>
-                <span className="text-blue-600">{Math.round(quality * 100)}%</span>
+            <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-blue-950 mb-0.5">Target-Size Adaptive Optimization</p>
+                <p className="text-slate-600">
+                  Our iterative binary search compressor will dynamically balance JPEG quality and resolution to match your exact target of <strong className="text-blue-700">{targetKb} KB</strong> (acceptable tolerance: ±1–2 KB).
+                </p>
               </div>
-              <input
-                type="range"
-                min="0.1"
-                max="1"
-                step="0.05"
-                value={quality}
-                onChange={(e) => setQuality(parseFloat(e.target.value))}
-                className="w-full accent-blue-600 cursor-pointer"
-              />
+            </div>
+          )}
+
+          {tool.id === 'compress-pdf' && (
+            <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/80 text-xs text-blue-900 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-blue-950 mb-0.5">Target-Size PDF Compression</p>
+                <p className="text-slate-600">
+                  Every page of your uploaded PDF will be analyzed and dynamically compressed to achieve your exact target of <strong className="text-blue-700">{targetKb} KB</strong> (acceptable tolerance: ±1–2 KB).
+                </p>
+              </div>
             </div>
           )}
 
@@ -867,19 +972,38 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
             </div>
           )}
 
+          {/* Compression Live Progress Status */}
+          {processing && compressionStatus && (
+            <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-800 flex items-center gap-2.5 animate-pulse">
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-600 shrink-0" />
+              <span>{compressionStatus}</span>
+            </div>
+          )}
+
+          {/* Compression Error if any */}
+          {compressionError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs font-medium text-rose-800 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-900 mb-0.5">Notice</p>
+                <p>{compressionError}</p>
+              </div>
+            </div>
+          )}
+
           {/* Process Button */}
           <button
             onClick={processTool}
             disabled={processing}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             {processing ? (
               <>
-                <RefreshCw className="w-5 h-5 animate-spin" /> Processing...
+                <RefreshCw className="w-5 h-5 animate-spin" /> {compressionStatus || 'Processing...'}
               </>
             ) : (
               <>
-                <Zap className="w-5 h-5" /> Process {tool.name} ({targetKb} KB, {dpi} DPI)
+                <Zap className="w-5 h-5" /> Process {tool.name} (Target: {targetKb} KB)
               </>
             )}
           </button>
@@ -890,6 +1014,27 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
               <div className="flex items-center gap-2 text-emerald-600 font-bold text-lg">
                 <CheckCircle2 className="w-6 h-6" /> Processing Successful!
               </div>
+
+              {/* Target Reached Verification Banner */}
+              {compressionDetails && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-emerald-950 text-sm">Target Size Achieved</h4>
+                      <p className="text-xs text-emerald-700">Verified output within acceptable tolerance (±{compressionDetails.diffKb} KB)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs font-bold">
+                    <div className="px-3 py-1.5 bg-white rounded-xl border border-emerald-200 text-slate-700 shadow-2xs">
+                      Target: <span className="text-blue-600 font-extrabold">{compressionDetails.targetKb} KB</span>
+                    </div>
+                    <div className="px-3 py-1.5 bg-emerald-600 rounded-xl text-white shadow-2xs">
+                      Final: {compressionDetails.finalKb} KB
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Stats for files */}
               {originalSize > 0 && (
@@ -903,7 +1048,7 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
                     <div className="text-lg font-bold text-indigo-600">{targetKb} KB</div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500 font-semibold">New Size</div>
+                    <div className="text-xs text-slate-500 font-semibold">Final Size</div>
                     <div className="text-lg font-bold text-blue-600">{formatBytes(newSize)}</div>
                   </div>
                   <div>
@@ -1002,7 +1147,7 @@ export function ToolPage({ toolId, onNavigate }: ToolPageProps) {
                     download={downloadFilename}
                     className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all text-base"
                   >
-                    <Download className="w-5 h-5" /> Download Result ({targetKb} KB, {dpi} DPI)
+                    <Download className="w-5 h-5" /> Download Result ({compressionDetails ? `${compressionDetails.finalKb} KB` : `${targetKb} KB, ${dpi} DPI`})
                   </a>
                 </div>
               )}
