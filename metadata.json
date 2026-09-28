@@ -1,0 +1,6 @@
+{
+  "name": "All Tool — Shashi Ranjan Muzaffarpur",
+  "description": "Free, fast and easy-to-use online tools for images, PDFs, documents, text utilities, and everyday tasks by Shashi Ranjan, Muzaffarpur, Bihar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
